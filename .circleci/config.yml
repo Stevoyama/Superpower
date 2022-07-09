@@ -44,20 +44,24 @@ commands:
             aws cloudformation delete-stack \
             --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" 
   
-  revert-migrations:
-    description: Revert the last migration if successful in the current workflow.
-    parameters:
-      workflow_id:
-        type: string
+   revert-migrations:
+    description: Revert the last migration if successfully run in the current workflow.
+    # parameters:
+      # Add parameter here     
     steps:
       - run:
           name: Revert migrations
+          # Add when this will run
           when: on_fail
           command: |
-            cd ~/project/backend
-            npm install
-            npm run build
-            npm run migrations:revert
+            export SUCCESS=$(curl --insecure  https://kvdb.io/${KVDB_BUCKET}/migration_${CIRCLE_WORKFLOW_ID:0:7})
+            echo ${SUCCESS}
+            if(( ${SUCCESS}==1 )); 
+            then
+             cd ~/project/backend
+             npm install
+             npm run migration:revert
+            fi
 
 jobs:
   build-frontend:
@@ -292,8 +296,7 @@ jobs:
             npm run build
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
       - destroy-environment
-      - revert-migrations:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+      - revert-migrations
 
   deploy-backend:
     docker:
@@ -331,8 +334,7 @@ jobs:
             cat inventory.txt
             ansible-playbook -i inventory.txt deploy-backend.yml
       - destroy-environment
-      - revert-migrations:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+      - revert-migrations
 
   smoke-test:
     docker:
@@ -359,9 +361,9 @@ jobs:
             echo ${API_URL}
             if curl -s $API_URL/api/status | grep "ok"
             then
-              return 0
+              exit 0
             else
-              return 1
+              exit 1
             fi
       - run:
           name: Frontend smoke test.
@@ -370,13 +372,12 @@ jobs:
             echo $FRONTEND_WEBSITE
             if curl -s $FRONTEND_WEBSITE | grep "Welcome"
             then
-              return 0
+              exit 0
             else
-              return 1
+              exit 1
             fi
       - destroy-environment
-      - revert-migrations:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+      - revert-migrations
     
 
 workflows:
