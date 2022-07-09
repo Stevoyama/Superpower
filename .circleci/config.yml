@@ -58,7 +58,7 @@ commands:
             npm install
             npm run build
             npm run migrations:revert
-            
+
 jobs:
   build-frontend:
     docker:
@@ -252,6 +252,7 @@ jobs:
               curl --insecure https://kvdb.io/GRUGeLHemybtkiFjoLeUsq/migration_${CIRCLE_WORKFLOW_ID:0:7} -d '1'
             fi
       - destroy-environment
+      - revert-migrations
       
 
   deploy-frontend:
@@ -293,7 +294,7 @@ jobs:
             npm run build
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
       - destroy-environment
-      
+      - revert-migrations
 
 workflows:
   default:
