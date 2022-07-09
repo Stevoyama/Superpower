@@ -435,7 +435,29 @@ jobs:
               aws cloudformation delete-stack --stack-name "udapeople-backend-${OldWorkflowID}"
               aws cloudformation delete-stack --stack-name "udapeople-frontend-${OldWorkflowID}"
             fi
-    
+  add-prometheus-node-exporter:
+    docker:
+      - image: python:3.10-alpine3.16
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ['4f:2d:ae:bb:f1:16:2f:f3:a1:20:f4:fa:59:49:a8:d2']
+      - restore_cache:
+          keys: [backend-build]
+      - attach_workspace:
+          at: ~/
+      - run:
+          name: Install dependencies
+          command: |
+            apk add --update tar gzip ansible nodejs npm aws-cli
+      - run:
+          name: Setup prometheus node exporter
+          command: |
+            cd .circleci/ansible
+            cat inventory.txt
+            ansible-playbook -i inventory.txt node-exporter.yml
+      - destroy-environment
+      - revert-migrations
 
 workflows:
   default:
@@ -467,5 +489,7 @@ workflows:
           requires: [deploy-backend, deploy-frontend]
       - cloudfront-update:
           requires: [smoke-test]
+      - add-prometheus-node-exporter:
+          requires: [smoke-test]
       - cleanup:
-          requires: [cloudfront-update]
+          requires: [add-prometheus-node-exporter, cloudfront-update]
