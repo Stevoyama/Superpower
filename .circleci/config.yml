@@ -240,8 +240,8 @@ jobs:
           root: ~/
           paths:
             - project/backend
-        
-        - destroy-environment      
+      
+      - destroy-environment      
 
   run-migrations:
     docker:
