@@ -219,10 +219,6 @@ jobs:
         - install_awscli
         - install_ansible
 
-        - run: 
-            name: install dependencies
-            command: |
-              apk add --update --no-cache tar gzip ansible aws-cli
               
         - run:
             name: Configure server
