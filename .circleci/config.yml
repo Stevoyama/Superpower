@@ -10,7 +10,6 @@ commands:
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             sudo ./aws/install
-
   install_ansible:
     description: Install Ansible
     steps:
@@ -30,7 +29,6 @@ commands:
           command: |
             curl -fsSL https://deb.nodesource.com/setup_13.x | sudo -E bash -
             sudo apt install -y nodejs
-
   destroy-environment:
     description: Destroy back-end and front-end cloudformation stacks given a workflow ID. 
     steps:
@@ -62,7 +60,6 @@ commands:
               npm install
               npm run migration:revert
             fi
-
 jobs:
   build-frontend:
     docker:
@@ -77,7 +74,6 @@ jobs:
             cd frontend
             npm install
             npm run build
-
       - save_cache:
           paths: [frontend/node_modules]
           key: frontend-build
@@ -95,7 +91,6 @@ jobs:
             cd backend
             npm install
             npm run build
-
       - save_cache:
           paths: [backend/node_modules]
           key: backend-build
@@ -113,7 +108,6 @@ jobs:
             cd frontend
             npm install
             npm run test
-
   test-backend:
     docker:
       - image: circleci/node:13.8.0
@@ -127,7 +121,6 @@ jobs:
             cd backend
             npm install
             npm run test
-
   scan-frontend:
     docker:
       - image: circleci/node:13.8.0
@@ -142,7 +135,6 @@ jobs:
             npm install
             # npm install oauth-sign@^0.9.0
             npm audit fix --audit-level=critical
-
   scan-backend:
     docker:
       - image: circleci/node:13.8.0
@@ -157,7 +149,6 @@ jobs:
             npm install
             # npm install oauth-sign@^0.9.0
             npm audit fix --audit-level=critical
-
   deploy-infrastructure:
     docker:
       - image: amazon/aws-cli
@@ -183,7 +174,6 @@ jobs:
               --tags project=udapeople \
               --stack-name "udapeople-frontend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" 
-
       - run:
           name: Add back-end ip to ansible inventory
           command: |
@@ -198,7 +188,6 @@ jobs:
             --filter Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7} \
             --output text
             )
-
       - persist_to_workspace:
           root: ~/
           paths:
@@ -207,7 +196,7 @@ jobs:
 
   configure-infrastructure:
       docker:
-        - image: cimg/base:stable
+        - image: cimg/node:13.8.0
       steps:
         - checkout
         - add_ssh_keys:
@@ -230,32 +219,29 @@ jobs:
 
   run-migrations:
     docker:
-      - image: python:3.10-alpine3.16
+      - image: cimg/node:13.8.0
     steps:
       - checkout
       - restore_cache:
           keys: [backend-build]
       - run:
-          name: Install dependencies
-          command: |
-            apk add --update --no-cache tar gzip nodejs npm aws-cli curl
-      - run:
           name: Run migrations
           command: | 
             cd backend
             npm install 
-            npm run build
+            # npm run build
             npm run migrations >> migrations_dump.txt
             ls -al
-            cat migrations_dump.txt
+            cat migrations_ump.txt
       - run:
           name: Send migration results to kvdb
           command: |
             if grep -q "has been executed successfully." ~/project/backend/migrations_dump.txt
             then
-              curl --insecure https://kvdb.io/GRUGeLHemybtkiFjoLeUsq/migration_${CIRCLE_WORKFLOW_ID:0:7} -d '1'
+              curl --insecure https://kvdb.io/GEo9FSKNDioGdGBEtaFmuu/migration_${CIRCLE_WORKFLOW_ID:0:7} -d '1'
             fi
       - destroy-environment
+      - revert-migrations
 
   deploy-frontend:
     docker:
@@ -330,7 +316,7 @@ jobs:
             tar -C ../../../backend -czvf artifact.tar.gz .
             cd ../
             
-            echo "Contents  of the inventory.txt file is -------$(tail -1 inventory.txt)"
+            echo "Contents  of the inventory.txt file is -------"
             cat inventory.txt
             ansible-playbook -i inventory.txt deploy-backend.yml
       - destroy-environment
@@ -348,7 +334,6 @@ jobs:
           name: Get backend url
           command: |
             # your code here
-
       - run:
           name: Frontend smoke test.
           command: |
@@ -360,7 +345,6 @@ jobs:
             else
               exit 1
             fi
-
       - run:
             name: Backend smoke test.
             command: |
@@ -372,14 +356,13 @@ jobs:
               echo ${BACKEND_PUBLIC_IP}
               echo backend-${CIRCLE_WORKFLOW_ID:0:7}
               echo ${API_URL}
-              # if curl -s $API_URL/api/status | grep "ok"
-              if curl https://google.com
+              if curl -s $API_URL/api/status | grep "ok"
+              # if curl https://google.com
               then
                 exit 0
               else
                 exit 1
               fi
-
       - destroy-environment
       - revert-migrations
 
@@ -435,7 +418,6 @@ jobs:
               aws cloudformation delete-stack --stack-name "udapeople-backend-${OldWorkflowID}"
               aws cloudformation delete-stack --stack-name "udapeople-frontend-${OldWorkflowID}"
             fi
-
 workflows:
   default:
     jobs:
@@ -449,4 +431,23 @@ workflows:
           requires: [build-backend]
       - scan-frontend:
           requires: [build-frontend]
-      
+      - deploy-infrastructure:
+          requires: [test-frontend, test-backend, scan-frontend, scan-backend]
+          filters:
+            branches:
+              only: [master]
+      - configure-infrastructure:
+          requires: [deploy-infrastructure]
+      - run-migrations:
+          requires: [configure-infrastructure]
+      - deploy-frontend:
+          requires: [run-migrations]
+      - deploy-backend:
+          requires: [run-migrations]
+      - smoke-test:
+          requires: [deploy-backend, deploy-frontend]
+      - cloudfront-update:
+          requires: [smoke-test]
+      - cleanup:
+          requires: [cloudfront-update]
+#Hope it works
