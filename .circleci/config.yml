@@ -244,9 +244,9 @@ jobs:
               ansible-playbook -i inventory.txt configure-server.yml
         
          - persist_to_workspace:
-          root: ~/
-          paths:
-            - project/backend
+            root: ~/
+            paths:
+              - project/backend
         
         - destroy-environment      
 
